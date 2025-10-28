@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aws-Study-NetworkLayer
+
+Resources:
+#VPCの作成
+  AwsStudyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Aws-study-vpc
+#subnetの作成
+  PublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1a
+  PublicSubnet1c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1c
+  PrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1a
+  PrivateSubnet1c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1c
+# インターネットゲートウェイ・パブリックサブネットのルートテーブルの作成
+  AwsStudyGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: AwsStudyGateway
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      InternetGatewayId: !Ref AwsStudyGateway
+  AwsStudyPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      Tags:
+        - Key: Name
+          Value: AwsStudyPublicRouteTable
+  AwsStudyPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      Tags:
+        - Key: Name
+          Value: AwsStudyPrivateRouteTable
+  AwsStudyPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref AwsStudyGateway
+# Subnet の関連付け
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1a
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1c
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+  PrivateSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1a
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1c
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+
+Outputs:
+  AwsStudyVpcId:
+    Value: !Ref AwsStudyVpc
+    Description: VPC ID
+    Export:
+      Name: AwsStudyVpcId
+  PublicSubnet1aId:
+    Value: !Ref PublicSubnet1a
+    Export:
+      Name: PublicSubnet1aId
+  PublicSubnet1cId:
+    Value: !Ref PublicSubnet1c
+    Export:
+      Name: PublicSubnet1cId
+  PrivateSubnet1aId:
+    Value: !Ref PrivateSubnet1a
+    Export:
+      Name: PrivateSubnet1aId
+  PrivateSubnet1cId:
+    Value: !Ref PrivateSubnet1c
+    Export:
+      Name: PrivateSubnet1cId
+      

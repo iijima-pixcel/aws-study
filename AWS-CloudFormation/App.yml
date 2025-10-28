@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aws-Study-ApplicationLayer
+
+Parameters:
+  DBMasterUsername:
+    Type: String
+    Default: admin
+    Description: RDSのマスターユーザー名
+
+Resources:
+# ALBの作成
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: AwsStudyALB
+      Subnets:
+        - !ImportValue PublicSubnet1aId
+        - !ImportValue PublicSubnet1cId
+      SecurityGroups:
+        - !ImportValue AlbSecurityGroupId
+      Scheme: internet-facing
+      Type: application
+# ALBのリスナー
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AlbTargetGroup
+# ALBのターゲットグループ
+  AlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: AwsStudyTargetGroup
+      Protocol: HTTP
+      Port: 8080
+      VpcId: !ImportValue AwsStudyVpcId
+      TargetType: instance  
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+      Targets: 
+        - Id: !Ref Ec2Instance
+          Port: 8080
+      Tags:
+        - Key: Name
+          Value: AwsStudyAlb
+  # EC2の作成
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-01205c30badb279ec
+      InstanceType: t3.micro
+      KeyName: aws-study
+      NetworkInterfaces:
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        SubnetId: !ImportValue PublicSubnet1aId
+        GroupSet:
+          - !ImportValue Ec2SecurityGroupId
+        DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: AwsStudyEC2
+  # RDS (MySQL)の作成
+  MyRDS:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: aws-study-db
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: mysql
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: '{{resolve:ssm-secure:/rds/master/password}}'
+      DBSubnetGroupName: !Ref RdsSubnetGroup
+      VPCSecurityGroups:
+        - !ImportValue RdsSecurityGroupId
+      BackupRetentionPeriod: 7
+      PubliclyAccessible: false
+      MultiAZ: false
+      Tags:
+        - Key: Name
+          Value: AwsStudyRDS
+  #RDSSubnetGroupの作成
+  RdsSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for RDS
+      SubnetIds:
+        - !ImportValue PrivateSubnet1aId
+        - !ImportValue PrivateSubnet1cId
+      DBSubnetGroupName: Aws-Study-Dbsubnet
