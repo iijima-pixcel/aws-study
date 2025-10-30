@@ -53,7 +53,7 @@ Resources:
       Tags:
         - Key: Name
           Value: PrivateSubnet1c
-# インターネットゲートウェイ・パブリックサブネットのルートテーブルの作成
+# インターネットゲートウェイの作成
   AwsStudyGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -65,6 +65,26 @@ Resources:
     Properties:
       VpcId: !Ref AwsStudyVpc
       InternetGatewayId: !Ref AwsStudyGateway
+# Nat GateWay関連
+# elpの作成
+  NatEip1a:
+      Type: AWS::EC2::EIP
+      DependsOn: AttachGateway
+      Properties:
+        Domain: vpc
+        Tags:
+          - Key: Name
+            Value: NatEip1a
+# NAT Gatewayの作成
+  NatGateway1a:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip1a.AllocationId
+      SubnetId: !Ref PublicSubnet1a
+      Tags:
+        - Key: Name
+          Value: NatGateway1a
+# ルート・ルートテーブル
   AwsStudyPublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -86,6 +106,12 @@ Resources:
       RouteTableId: !Ref AwsStudyPublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref AwsStudyGateway
+  AwsStudyPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1a
 # Subnet の関連付け
   PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation

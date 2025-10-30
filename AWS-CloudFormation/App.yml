@@ -6,6 +6,12 @@ Parameters:
     Type: String
     Default: admin
     Description: RDSのマスターユーザー名
+  AMI:
+    Type: AWS::EC2::Image::Id
+    Description: 使用するAMI ID
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2インスタンスに使用するキーペア名
 
 Resources:
 # ALBの作成
@@ -56,9 +62,9 @@ Resources:
   Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-01205c30badb279ec
+      ImageId: !Ref AMI
       InstanceType: t3.micro
-      KeyName: aws-study
+      KeyName: !Ref KeyName
       NetworkInterfaces:
       - DeviceIndex: 0
         AssociatePublicIpAddress: true
