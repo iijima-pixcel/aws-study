@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation execution role for all stacks
+
+Resources:
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CloudFormationExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudFormationExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # ---- 基本的なリソース操作権限 ----
+              - Effect: Allow
+                Action:
+                  - ec2:*
+                  - s3:*
+                  - rds:*
+                  - elasticloadbalancing:*
+                  - iam:PassRole
+                Resource: "*"
+              # ---- SSM パラメータ参照権限 ----
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                Resource: arn:aws:ssm:ap-northeast-1:205619292566:parameter/rds/master/password
+              # ---- 暗号化解除（KMS）権限 ----
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource: arn:aws:kms:ap-northeast-1:205619292566:key/*
