@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Aws-Study-NetworkLayer
 
 Resources:
-#VPCの作成
+# Create VPC
   AwsStudyVpc:
     Type: AWS::EC2::VPC
     Properties:
@@ -12,7 +12,7 @@ Resources:
       Tags:
         - Key: Name
           Value: Aws-study-vpc
-#subnetの作成
+# Create Subnets
   PublicSubnet1a:
     Type: AWS::EC2::Subnet
     Properties:
@@ -53,7 +53,7 @@ Resources:
       Tags:
         - Key: Name
           Value: PrivateSubnet1c
-# インターネットゲートウェイの作成
+# Create Internet Gateway
   AwsStudyGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -65,17 +65,17 @@ Resources:
     Properties:
       VpcId: !Ref AwsStudyVpc
       InternetGatewayId: !Ref AwsStudyGateway
-# Nat GateWay関連
-# elpの作成
+# NAT Gateway Section
+# Create Elastic IP for NAT Gateway
   NatEip1a:
-      Type: AWS::EC2::EIP
-      DependsOn: AttachGateway
-      Properties:
-        Domain: vpc
-        Tags:
-          - Key: Name
-            Value: NatEip1a
-# NAT Gatewayの作成
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: NatEip1a
+# Create NAT Gateway
   NatGateway1a:
     Type: AWS::EC2::NatGateway
     Properties:
@@ -84,7 +84,7 @@ Resources:
       Tags:
         - Key: Name
           Value: NatGateway1a
-# ルート・ルートテーブル
+# Create Route Tables and Routes
   AwsStudyPublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -112,7 +112,7 @@ Resources:
       RouteTableId: !Ref AwsStudyPrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway1a
-# Subnet の関連付け
+# Associate Subnets with Route Tables
   PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:

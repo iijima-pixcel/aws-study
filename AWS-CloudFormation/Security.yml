@@ -8,7 +8,7 @@ Parameters:
     Default: 36.8.0.45/32
 
 Resources:
-#ALB用セキュリティグループ
+#ALBSecurityGroup
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -22,7 +22,7 @@ Resources:
       Tags:
         - Key: Name
           Value: AlbSecurityGroup
-#EC2用セキュリティグループ
+#EC2SecurityGroup
   Ec2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -43,7 +43,7 @@ Resources:
       Tags:
         - Key: Name
           Value: Ec2SecurityGroup
-#RDS用RdsSecurityGroup:
+#RdsSecurityGroup:
   RdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup 
     Properties:

@@ -36,7 +36,7 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
   --parameter-overrides \
-    NetworkStackName=network-stack \
+    NetworkStackName=network-stack 
 ```
 
 ##  KMSキーについて
@@ -60,7 +60,7 @@ aws cloudformation deploy \
     "kms:GenerateDataKey*"
   ],
   "Resource": "*"
-}
+  }
 
 ## デプロイ順序
 1. AWS-CloudFormation/iam-role.ymlで CloudFormation 実行ロールを作成
@@ -71,3 +71,12 @@ aws cloudformation deploy \
 ## （CI/CD利用時の補足）
 - CI/CD 実行ロールがこのロールを引き受ける方式ではなく、
 スタック作成時に --role-arn を指定して実行する方式を採用しています。
+
+## デプロイ実行主体
+本スタックは以下のロールを使用してデプロイします。
+- 実行ロール: `arn:aws:iam::205619292566:role/CloudFormationExecutionRole`
+- 実行ユーザー: IAM 管理者ユーザー（手動デプロイ時）
+## 想定される失敗時の確認箇所
+- **CloudFormation Stack Events**: 各リソースの作成／更新エラーを確認／権限の許可
+- **CloudTrail**: 権限不足や API 呼び出し拒否の発生履歴を確認
+- **KMS**: 暗号化リソース（例: SSM SecureString, RDS 暗号化）の復号権限エラーを確認

@@ -5,16 +5,16 @@ Parameters:
   DBMasterUsername:
     Type: String
     Default: admin
-    Description: RDSのマスターユーザー名
+    Description: Master username for the RDS instance
   AMI:
     Type: AWS::EC2::Image::Id
-    Description: 使用するAMI ID
+    Description: AMI ID to use for the EC2 instance
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2インスタンスに使用するキーペア名
+    Description: Name of the key pair to use for the EC2 instance
 
 Resources:
-# ALBの作成
+# Create Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -26,7 +26,7 @@ Resources:
         - !ImportValue AlbSecurityGroupId
       Scheme: internet-facing
       Type: application
-# ALBのリスナー
+# Create ALB Listener
   AlbListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -36,7 +36,7 @@ Resources:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref AlbTargetGroup
-# ALBのターゲットグループ
+# Create ALB Target Group
   AlbTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -58,7 +58,7 @@ Resources:
       Tags:
         - Key: Name
           Value: AwsStudyAlb
-  # EC2の作成
+# Create EC2 Instance
   Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -75,7 +75,7 @@ Resources:
       Tags:
         - Key: Name
           Value: AwsStudyEC2
-  # RDS (MySQL)の作成
+# Create RDS (MySQL)
   MyRDS:
     Type: AWS::RDS::DBInstance
     DeletionPolicy: Snapshot
@@ -96,7 +96,7 @@ Resources:
       Tags:
         - Key: Name
           Value: AwsStudyRDS
-  #RDSSubnetGroupの作成
+# Create RDS Subnet Group
   RdsSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
