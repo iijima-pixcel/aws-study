@@ -17,28 +17,36 @@
 # Network スタック
 aws cloudformation deploy \
   --template-file AWS-CloudFormation/Network.yml \
-  --stack-name network-stack \
+  --stack-name AwsStudy-Network-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole
 
 # Security スタック
 aws cloudformation deploy \
   --template-file AWS-CloudFormation/Security.yml \
-  --stack-name security-stack \
+  --stack-name AwsStudy-Security-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
-  --parameter-overrides NetworkStackName=network-stack
+  --parameter-overrides 
+      CidrIpFromInternet=<YOUR-CIDR-IP> \  # ここを自分のアクセス元 IP/CIDR に置き換える
+⚠️注意
+<YOUR-CIDR-IP> はアクセスを許可する IP/CIDR を指定します（例: 36.8.0.45/32）。
 
 # App スタック
 aws cloudformation deploy \
   --template-file AWS-CloudFormation/App.yml \
-  --stack-name app-stack \
+  --stack-name AwsStudy-App-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
   --parameter-overrides \
-    NetworkStackName=network-stack 
+      KeyName=<YOUR-KEYPAIR-NAME> \        # ここを自分の EC2 キーペア名に置き換える
+      AMI=<YOUR-AMI-ID> \                  # ここを対象リージョンの AMI ID に置き換える
+      DBMasterUsername=<YOUR-DB-USERNAME>  # ここを RDS マスターユーザー名に置き換える
+⚠️注意
+KeyName: AWS EC2 のキーペア名
+AMI: 対象リージョンの有効な AMI ID
+DBMasterUsername: RDS のマスターユーザー名
 ```
-
 ##  KMSキーについて
 - 本環境では、SSM パラメータストアの SecureString 暗号化にAWSマネージドキー (`aws/ssm`)** を使用しています。
 - このキーは AWS によって管理されており、キー・ポリシーの直接編集は行えません。
@@ -67,6 +75,57 @@ aws cloudformation deploy \
 2. AWS-CloudFormation/Network.ymlで基盤ネットワーク構築
 3. AWS-CloudFormation/Security.ymlでセキュリティグループ等構築
 4. AWS-CloudFormation/App.ymlでEC2 / RDS などアプリ層構築
+
+## 事前確認（ChangeSet とテストデプロイ）
+  本番デプロイ前に ChangeSet を使って作成内容を確認してください。
+  ### ChangeSet 作成例（App スタック）
+  ```
+  aws cloudformation create-change-set \
+  --stack-name AwsStudy-App-stack \
+  --change-set-name PreDeployCheck \
+  --template-body file://AWS-CloudFormation/App.yml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
+  --parameters ParameterKey=KeyName,ParameterValue=<YOUR-KEYPAIR-NAME> \
+               ParameterKey=AMI,ParameterValue=<YOUR-AMI-ID> \
+               ParameterKey=DBMasterUsername,ParameterValue=<YOUR-DB-USERNAME> \             
+  --region ap-northeast-1
+  ``` 
+  ### ChangeSet 内容確認
+  ```
+  aws cloudformation describe-change-set \
+  --stack-name AwsStudy-App-stack \
+  --change-set-name PreDeployCheck \
+  --region ap-northeast-1
+  ```
+  ### ChangeSet 実行
+  ```
+  aws cloudformation execute-change-set \
+  --stack-name AwsStudy-App-stack \
+  --change-set-name PreDeployCheck \
+  --region ap-northeast-1
+  ```
+⚠️備考:  
+ChangeSet を事前に作成して確認することをお勧めします。IAM ロールを作成してからでないと他テンプレートは参照できないため、最初に iam-role.yml を作成してください。
+  ### スタックイベント確認
+  ```
+  aws cloudformation describe-stack-events \
+  --stack-name AwsStudy-App \
+  --region ap-northeast-1 \
+  --query "StackEvents[?ResourceStatusReason!=null].[Timestamp,LogicalResourceId,ResourceStatus,ResourceStatusReason]" \
+  --output text
+  ```
+  
+💡 解説
+- --query  
+  → 失敗や警告など、理由が付与されたイベントのみを抽出します。
+- --output text  
+→ 見やすい一行形式で出力します。
+
+✅ チェックポイント
+- CREATE_COMPLETE になっていれば成功
+- ROLLBACK_IN_PROGRESS や FAILED の場合は、権限や依存関係を確認
+- 詳細を CloudFormation コンソールの「Events」タブでも確認可能
 
 ## （CI/CD利用時の補足）
 - CI/CD 実行ロールがこのロールを引き受ける方式ではなく、
