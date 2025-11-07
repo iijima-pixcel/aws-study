@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation execution role for all stacks
+Description: CloudFormation execution role for AwsStudy (least privilege with describe grouping)
 
 Resources:
   CloudFormationExecutionRole:
@@ -9,33 +9,116 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
+          # allow CloudFormation service to assume this role
           - Effect: Allow
             Principal:
-              Service:
-                - cloudformation.amazonaws.com
+              Service: cloudformation.amazonaws.com
             Action: sts:AssumeRole
+
       Policies:
         - PolicyName: CloudFormationExecutionPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # ---- Basic resource operation permissions ----
-              - Effect: Allow
-                Action:
-                  - ec2:*
-                  - s3:*
-                  - rds:*
-                  - elasticloadbalancing:*
-                  - iam:PassRole
-                Resource: "*"
-              # ---- Permission to access SSM parameters ----
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rds/master/password
-              # ---- Permission to decrypt (KMS) ----
-              - Effect: Allow
-                Action:
-                  - kms:Decrypt
-                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+
+            # read only describe actions for ec2, elb, rds (safe and required)
+            - Effect: Allow
+              Action:
+                - ec2:Describe*
+                - elasticloadbalancing:Describe*
+                - rds:Describe*
+              Resource: "*"
+
+            # vpc, subnet, igw, nat, eip, route table operations
+            - Effect: Allow
+              Action:
+                - ec2:CreateVpc
+                - ec2:DeleteVpc
+                - ec2:ModifyVpcAttribute
+                - ec2:CreateSubnet
+                - ec2:DeleteSubnet
+                - ec2:ModifySubnetAttribute
+                - ec2:CreateInternetGateway
+                - ec2:DeleteInternetGateway
+                - ec2:AttachInternetGateway
+                - ec2:AllocateAddress
+                - ec2:ReleaseAddress
+                - ec2:CreateNatGateway
+                - ec2:DeleteNatGateway
+                - ec2:CreateRouteTable
+                - ec2:DeleteRouteTable
+                - ec2:AssociateRouteTable
+                - ec2:DisassociateRouteTable
+                - ec2:CreateRoute
+                - ec2:DeleteRoute
+                - ec2:CreateTags
+                - ec2:DeleteTags
+              Resource: "*"
+
+            # security group operations
+            - Effect: Allow
+              Action:
+                - ec2:CreateSecurityGroup
+                - ec2:DeleteSecurityGroup
+                - ec2:AuthorizeSecurityGroupIngress
+                - ec2:AuthorizeSecurityGroupEgress
+                - ec2:RevokeSecurityGroupIngress
+                - ec2:RevokeSecurityGroupEgress
+              Resource: "*"
+
+            # ec2 instance and network interfaces
+            - Effect: Allow
+              Action:
+                - ec2:RunInstances
+                - ec2:TerminateInstances
+                - ec2:CreateNetworkInterface
+                - ec2:DeleteNetworkInterface
+                - ec2:AttachNetworkInterface
+                - ec2:DetachNetworkInterface
+              Resource: "*"
+
+            # alb, target group, listeners
+            - Effect: Allow
+              Action:
+                - elasticloadbalancing:CreateLoadBalancer
+                - elasticloadbalancing:DeleteLoadBalancer
+                - elasticloadbalancing:CreateTargetGroup
+                - elasticloadbalancing:DeleteTargetGroup
+                - elasticloadbalancing:CreateListener
+                - elasticloadbalancing:DeleteListener
+                - elasticloadbalancing:ModifyListener
+                - elasticloadbalancing:RegisterTargets      
+                - elasticloadbalancing:DeregisterTargets
+                - elasticloadbalancing:AddTags
+                - elasticloadbalancing:RemoveTags
+              Resource: "*"
+
+            # rds instance and subnet group
+            - Effect: Allow
+              Action:
+                - rds:CreateDBInstance
+                - rds:DeleteDBInstance
+                - rds:CreateDBSubnetGroup
+                - rds:DeleteDBSubnetGroup
+                - rds:AddTagsToResource       
+                - rds:ListTagsForResource
+                - rds:CreateDBSnapshot         
+                - rds:DeleteDBSnapshot
+              Resource: "*"
+
+            # passrole needed for ec2 and rds
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
+
+            # ssm secure string access for rds password
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rds/master/password
+
+            # kms decrypt for ssm secure string
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
