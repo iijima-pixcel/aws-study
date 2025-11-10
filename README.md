@@ -125,7 +125,7 @@ Parameters:
 4. 問題なければ ChangeSet を実行（apply）
 5. スタックイベントで進捗確認
 6. 完了（CREATE_COMPLETE）
-7. 
+ 
 #  ✅ デプロイ手順（正しい順番）
 ### Network スタック
 ```
@@ -195,16 +195,16 @@ DBMasterUsername: RDS のマスターユーザー名
 4. AWS-CloudFormation/App.ymlでEC2 / RDS などアプリ層構築  
  
 ⚠️ 注意:iam-role.yml を最初に作成しないと、後続スタックがロールを参照できずエラーになります。
-
-
-   
+  
 ## （CI/CD利用時の補足）
 - CI/CD 実行ロールがこのロールを引き受ける方式ではなく、
 スタック作成時に --role-arn を指定して実行する方式を採用しています。
 
 ## デプロイ実行主体
 本スタックは以下のロールを使用してデプロイします。
-- 実行ロール: `arn:aws:iam::205619292566:role/CloudFormationExecutionRole`
+- 実行ロール: `arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole"　　
+
+⚠️ 注意: 使用者のアカウントIDに入れ替えてください
 - 実行ユーザー: IAM 管理者ユーザー（手動デプロイ時）
 ## 想定される失敗時の確認箇所
 - **CloudFormation Stack Events**: 各リソースの作成／更新エラーを確認／権限の許可

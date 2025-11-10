@@ -2,7 +2,8 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Aws-Study-NetworkLayer
 
 Resources:
-# Create VPC
+
+  # VPC
   AwsStudyVpc:
     Type: AWS::EC2::VPC
     Properties:
@@ -11,9 +12,12 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: Aws-study-vpc
-# Create Subnets
-  PublicSubnet1a:
+          Value: AwsStudyVpc
+        - Key: Project
+          Value: AwsStudy         
+
+  # Public Subnet 1a
+  AwsStudyPublicSubnet1a:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AwsStudyVpc
@@ -22,8 +26,12 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: PublicSubnet1a
-  PublicSubnet1c:
+          Value: AwsStudyPublicSubnet1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Public Subnet 1c
+  AwsStudyPublicSubnet1c:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AwsStudyVpc
@@ -32,8 +40,12 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: PublicSubnet1c
-  PrivateSubnet1a:
+          Value: AwsStudyPublicSubnet1c
+        - Key: Project
+          Value: AwsStudy
+
+  # Private Subnet 1a
+  AwsStudyPrivateSubnet1a:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AwsStudyVpc
@@ -42,8 +54,12 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: PrivateSubnet1a
-  PrivateSubnet1c:
+          Value: AwsStudyPrivateSubnet1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Private Subnet 1c
+  AwsStudyPrivateSubnet1c:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AwsStudyVpc
@@ -52,39 +68,51 @@ Resources:
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: PrivateSubnet1c
-# Create Internet Gateway
-  AwsStudyGateway:
+          Value: AwsStudyPrivateSubnet1c
+        - Key: Project
+          Value: AwsStudy
+
+  # Internet Gateway
+  AwsStudyInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: AwsStudyGateway
+          Value: AwsStudyInternetGateway
+        - Key: Project
+          Value: AwsStudy
+
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref AwsStudyVpc
-      InternetGatewayId: !Ref AwsStudyGateway
-# NAT Gateway Section
-# Create Elastic IP for NAT Gateway
-  NatEip1a:
+      InternetGatewayId: !Ref AwsStudyInternetGateway
+
+  # NAT EIP
+  AwsStudyNatEip1a:
     Type: AWS::EC2::EIP
     DependsOn: AttachGateway
     Properties:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: NatEip1a
-# Create NAT Gateway
-  NatGateway1a:
+          Value: AwsStudyNatEip1a
+        - Key: Project
+          Value: AwsStudy
+
+  # NAT Gateway
+  AwsStudyNatGateway1a:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt NatEip1a.AllocationId
-      SubnetId: !Ref PublicSubnet1a
+      AllocationId: !GetAtt AwsStudyNatEip1a.AllocationId
+      SubnetId: !Ref AwsStudyPublicSubnet1a
       Tags:
         - Key: Name
-          Value: NatGateway1a
-# Create Route Tables and Routes
+          Value: AwsStudyNatGateway1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Route Table (Public)
   AwsStudyPublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -92,6 +120,10 @@ Resources:
       Tags:
         - Key: Name
           Value: AwsStudyPublicRouteTable
+        - Key: Project
+          Value: AwsStudy
+
+  # Route Table (Private)
   AwsStudyPrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -99,61 +131,73 @@ Resources:
       Tags:
         - Key: Name
           Value: AwsStudyPrivateRouteTable
+        - Key: Project
+          Value: AwsStudy
+
   AwsStudyPublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
       RouteTableId: !Ref AwsStudyPublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref AwsStudyGateway
+      GatewayId: !Ref AwsStudyInternetGateway
+
   AwsStudyPrivateRoute:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref AwsStudyPrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1a
-# Associate Subnets with Route Tables
-  PublicSubnet1RouteTableAssociation:
+      NatGatewayId: !Ref AwsStudyNatGateway1a
+
+  # Route Associations
+  PublicSubnet1aRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet1a
+      SubnetId: !Ref AwsStudyPublicSubnet1a
       RouteTableId: !Ref AwsStudyPublicRouteTable
-  PublicSubnet2RouteTableAssociation:
+
+  PublicSubnet1cRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet1c
+      SubnetId: !Ref AwsStudyPublicSubnet1c
       RouteTableId: !Ref AwsStudyPublicRouteTable
+
   PrivateSubnet1aRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet1a
+      SubnetId: !Ref AwsStudyPrivateSubnet1a
       RouteTableId: !Ref AwsStudyPrivateRouteTable
-  PrivateSubnet2RouteTableAssociation:
+
+  PrivateSubnet1cRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet1c
+      SubnetId: !Ref AwsStudyPrivateSubnet1c
       RouteTableId: !Ref AwsStudyPrivateRouteTable
 
 Outputs:
   AwsStudyVpcId:
     Value: !Ref AwsStudyVpc
-    Description: VPC ID
     Export:
       Name: AwsStudyVpcId
-  PublicSubnet1aId:
-    Value: !Ref PublicSubnet1a
+
+  AwsStudyPublicSubnet1aId:
+    Value: !Ref AwsStudyPublicSubnet1a
     Export:
-      Name: PublicSubnet1aId
-  PublicSubnet1cId:
-    Value: !Ref PublicSubnet1c
+      Name: AwsStudyPublicSubnet1aId
+
+  AwsStudyPublicSubnet1cId:
+    Value: !Ref AwsStudyPublicSubnet1c
     Export:
-      Name: PublicSubnet1cId
-  PrivateSubnet1aId:
-    Value: !Ref PrivateSubnet1a
+      Name: AwsStudyPublicSubnet1cId
+
+  AwsStudyPrivateSubnet1aId:
+    Value: !Ref AwsStudyPrivateSubnet1a
     Export:
-      Name: PrivateSubnet1aId
-  PrivateSubnet1cId:
-    Value: !Ref PrivateSubnet1c
+      Name: AwsStudyPrivateSubnet1aId
+
+  AwsStudyPrivateSubnet1cId:
+    Value: !Ref AwsStudyPrivateSubnet1c
     Export:
-      Name: PrivateSubnet1cId
+      Name: AwsStudyPrivateSubnet1cId
+
       

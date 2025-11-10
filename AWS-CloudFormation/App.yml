@@ -6,45 +6,55 @@ Parameters:
     Type: String
     Default: admin
     Description: Master username for the RDS instance
+
   AMI:
     Type: AWS::EC2::Image::Id
-    Description: AMI ID to use for the EC2 instance
+    Description: AMI ID for the EC2 instance
+
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: Name of the key pair to use for the EC2 instance
+    Description: EC2 key pair name
 
 Resources:
-# Create Application Load Balancer
-  ApplicationLoadBalancer:
+  
+  # Application Load Balancer
+  AwsStudyApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: AwsStudyALB
       Subnets:
-        - !ImportValue PublicSubnet1aId
-        - !ImportValue PublicSubnet1cId
+        - !ImportValue AwsStudyPublicSubnet1aId
+        - !ImportValue AwsStudyPublicSubnet1cId
       SecurityGroups:
-        - !ImportValue AlbSecurityGroupId
+        - !ImportValue AwsStudyAlbSecurityGroupId
       Scheme: internet-facing
       Type: application
-# Create ALB Listener
-  AlbListener:
+      Tags:
+        - Key: Name
+          Value: AwsStudyALB
+        - Key: Project
+          Value: AwsStudy
+  
+  # ALB Listener
+  AwsStudyAlbListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      LoadBalancerArn: !Ref AwsStudyApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref AlbTargetGroup
-# Create ALB Target Group
-  AlbTargetGroup:
+          TargetGroupArn: !Ref AwsStudyAlbTargetGroup   
+  
+  # Target Group
+  AwsStudyAlbTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: AwsStudyTargetGroup
       Protocol: HTTP
       Port: 8080
       VpcId: !ImportValue AwsStudyVpcId
-      TargetType: instance  
+      TargetType: instance
       HealthCheckProtocol: HTTP
       HealthCheckPath: /
       HealthCheckIntervalSeconds: 30
@@ -52,31 +62,37 @@ Resources:
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: 200
-      Targets: 
-        - Id: !Ref Ec2Instance
+      Targets:
+        - Id: !Ref AwsStudyEc2Instance
           Port: 8080
       Tags:
         - Key: Name
-          Value: AwsStudyAlb
-# Create EC2 Instance
-  Ec2Instance:
+          Value: AwsStudyTargetGroup
+        - Key: Project
+          Value: AwsStudy
+  
+  # EC2 Instance
+  AwsStudyEc2Instance:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref AMI
       InstanceType: t3.micro
       KeyName: !Ref KeyName
       NetworkInterfaces:
-      - DeviceIndex: 0
-        AssociatePublicIpAddress: true
-        SubnetId: !ImportValue PublicSubnet1aId
-        GroupSet:
-          - !ImportValue Ec2SecurityGroupId
-        DeleteOnTermination: true
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          SubnetId: !ImportValue AwsStudyPublicSubnet1aId
+          GroupSet:
+            - !ImportValue AwsStudyEc2SecurityGroupId
+          DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: AwsStudyEC2
-# Create RDS (MySQL)
-  MyRDS:
+        - Key: Project
+          Value: AwsStudy
+
+  # RDS Instance (MySQL)
+  AwsStudyRdsInstance:
     Type: AWS::RDS::DBInstance
     DeletionPolicy: Snapshot
     UpdateReplacePolicy: Snapshot
@@ -87,21 +103,29 @@ Resources:
       Engine: mysql
       MasterUsername: !Ref DBMasterUsername
       MasterUserPassword: '{{resolve:ssm-secure:/rds/master/password}}'
-      DBSubnetGroupName: !Ref RdsSubnetGroup
+      DBSubnetGroupName: !Ref AwsStudyRdsSubnetGroup
       VPCSecurityGroups:
-        - !ImportValue RdsSecurityGroupId
+        - !ImportValue AwsStudyRdsSecurityGroupId
       BackupRetentionPeriod: 7
       PubliclyAccessible: false
       MultiAZ: false
       Tags:
         - Key: Name
           Value: AwsStudyRDS
-# Create RDS Subnet Group
-  RdsSubnetGroup:
+        - Key: Project
+          Value: AwsStudy
+
+  # RDS Subnet Group
+  AwsStudyRdsSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: Subnets for RDS
+      DBSubnetGroupDescription: Subnets for AwsStudy RDS
       SubnetIds:
-        - !ImportValue PrivateSubnet1aId
-        - !ImportValue PrivateSubnet1cId
-      DBSubnetGroupName: Aws-Study-Dbsubnet
+        - !ImportValue AwsStudyPrivateSubnet1aId
+        - !ImportValue AwsStudyPrivateSubnet1cId
+      DBSubnetGroupName: AwsStudyDbSubnetGroup
+      Tags:
+        - Key: Name
+          Value: AwsStudyDbSubnetGroup
+        - Key: Project
+          Value: AwsStudy

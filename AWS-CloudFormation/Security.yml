@@ -1,6 +1,6 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: 2010-09-09
 Description: Aws-Study-SecurityLayer
-#MyIp
+
 Parameters:
   CidrIpFromInternet:
     Type: String
@@ -8,11 +8,12 @@ Parameters:
     Default: 36.8.0.45/32
 
 Resources:
-#ALBSecurityGroup
-  AlbSecurityGroup:
+
+  # ALB Security Group
+  AwsStudyAlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP/HTTPS from the Internet
+      GroupDescription: Allow HTTP/HTTPS from Internet
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -21,31 +22,37 @@ Resources:
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: AlbSecurityGroup
-#EC2SecurityGroup
-  Ec2SecurityGroup:
+          Value: AwsStudyAlbSecurityGroup
+        - Key: Project
+          Value: AwsStudy
+
+  # EC2 Security Group
+  AwsStudyEc2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow traffic from ALB
+      GroupDescription: Allow traffic from ALB + SSH from My IP
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
-          SourceSecurityGroupId: !Ref AlbSecurityGroup
+          SourceSecurityGroupId: !Ref AwsStudyAlbSecurityGroup
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref CidrIpFromInternet
       SecurityGroupEgress:
         - IpProtocol: -1
-          CidrIp: 0.0.0.0/0  
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: Ec2SecurityGroup
-#RdsSecurityGroup:
-  RdsSecurityGroup:
-    Type: AWS::EC2::SecurityGroup 
+          Value: AwsStudyEc2SecurityGroup
+        - Key: Project
+          Value: AwsStudy
+
+  # RDS Security Group
+  AwsStudyRdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow DB access from EC2
       VpcId: !ImportValue AwsStudyVpcId
@@ -53,21 +60,25 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !Ref Ec2SecurityGroup
+          SourceSecurityGroupId: !Ref AwsStudyEc2SecurityGroup
       Tags:
         - Key: Name
-          Value: RdsSecurityGroup
+          Value: AwsStudyRdsSecurityGroup
+        - Key: Project
+          Value: AwsStudy
 
 Outputs:
   AlbSecurityGroupId:
-    Value: !Ref AlbSecurityGroup
+    Value: !Ref AwsStudyAlbSecurityGroup
     Export:
-      Name: AlbSecurityGroupId
+      Name: AwsStudyAlbSecurityGroupId
+
   Ec2SecurityGroupId:
-    Value: !Ref Ec2SecurityGroup
+    Value: !Ref AwsStudyEc2SecurityGroup
     Export:
-      Name: Ec2SecurityGroupId
+      Name: AwsStudyEc2SecurityGroupId
+
   RdsSecurityGroupId:
-    Value: !Ref RdsSecurityGroup
+    Value: !Ref AwsStudyRdsSecurityGroup
     Export:
-      Name: RdsSecurityGroupId
+      Name: AwsStudyRdsSecurityGroupId

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CloudFormation execution role for AwsStudy (least privilege with describe grouping)
+Description: CloudFormation execution role for AwsStudy (tag-based + minimal privilege)
 
 Resources:
   CloudFormationExecutionRole:
@@ -9,7 +9,6 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          # allow CloudFormation service to assume this role
           - Effect: Allow
             Principal:
               Service: cloudformation.amazonaws.com
@@ -21,104 +20,170 @@ Resources:
             Version: "2012-10-17"
             Statement:
 
-            # read only describe actions for ec2, elb, rds (safe and required)
+            # Allow CloudFormation stack operations only for AwsStudy-stacks
+            - Effect: Allow
+              Action:
+                - cloudformation:CreateStack
+                - cloudformation:UpdateStack
+                - cloudformation:DeleteStack
+                - cloudformation:CreateChangeSet
+                - cloudformation:ExecuteChangeSet
+                - cloudformation:DeleteChangeSet
+                - cloudformation:Describe*
+                - cloudformation:List*
+                - cloudformation:GetTemplate
+              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/AwsStudy-*
+
+            # Required describe permissions
             - Effect: Allow
               Action:
                 - ec2:Describe*
                 - elasticloadbalancing:Describe*
                 - rds:Describe*
+                - logs:Describe*
+                - ssm:DescribeParameters
+                - kms:DescribeKey
+                - iam:GetRole
+                - iam:ListRolePolicies
               Resource: "*"
 
-            # vpc, subnet, igw, nat, eip, route table operations
-            - Effect: Allow
+            #  Create operations 
+            # (Cannot restrict by ARN because ARN does not exist yet)
+            - Sid: Ec2Create
+              Effect: Allow
               Action:
                 - ec2:CreateVpc
-                - ec2:DeleteVpc
-                - ec2:ModifyVpcAttribute
                 - ec2:CreateSubnet
-                - ec2:DeleteSubnet
-                - ec2:ModifySubnetAttribute
                 - ec2:CreateInternetGateway
-                - ec2:DeleteInternetGateway
-                - ec2:AttachInternetGateway
-                - ec2:AllocateAddress
-                - ec2:ReleaseAddress
-                - ec2:CreateNatGateway
-                - ec2:DeleteNatGateway
                 - ec2:CreateRouteTable
-                - ec2:DeleteRouteTable
+                - ec2:CreateNatGateway
+                - ec2:AttachInternetGateway
                 - ec2:AssociateRouteTable
-                - ec2:DisassociateRouteTable
+                - ec2:AllocateAddress
+                - ec2:CreateSecurityGroup
+                - ec2:RunInstances
+                - ec2:CreateNetworkInterface
                 - ec2:CreateRoute
-                - ec2:DeleteRoute
                 - ec2:CreateTags
-                - ec2:DeleteTags
               Resource: "*"
 
-            # security group operations
-            - Effect: Allow
+            # ALB Create operations
+            - Sid: ElbCreate
+              Effect: Allow
               Action:
-                - ec2:CreateSecurityGroup
-                - ec2:DeleteSecurityGroup
+                - elasticloadbalancing:CreateLoadBalancer
+                - elasticloadbalancing:CreateTargetGroup
+                - elasticloadbalancing:CreateListener
+                - elasticloadbalancing:AddTags
+                - elasticloadbalancing:RegisterTargets
+              Resource: "*"
+
+            # RDS Create operations
+            - Sid: RdsCreate
+              Effect: Allow
+              Action:
+                - rds:CreateDBInstance
+                - rds:CreateDBSubnetGroup
+                - rds:AddTagsToResource
+              Resource: "*"
+
+            #  Modify/Delete can be restricted  
+            - Sid: Ec2ModifyDeleteAwsStudy
+              Effect: Allow
+              Action:
+                - ec2:DeleteVpc
+                - ec2:DeleteSubnet
+                - ec2:DeleteInternetGateway
+                - ec2:DeleteRouteTable
+                - ec2:DeleteNatGateway
+                - ec2:ReleaseAddress
+                - ec2:DeleteRoute
+                - ec2:DisassociateRouteTable
+                - ec2:DeleteNetworkInterface
+                - ec2:ModifyVpcAttribute
+                - ec2:ModifySubnetAttribute
                 - ec2:AuthorizeSecurityGroupIngress
                 - ec2:AuthorizeSecurityGroupEgress
                 - ec2:RevokeSecurityGroupIngress
                 - ec2:RevokeSecurityGroupEgress
-              Resource: "*"
-
-            # ec2 instance and network interfaces
-            - Effect: Allow
-              Action:
-                - ec2:RunInstances
+                - ec2:DeleteSecurityGroup
                 - ec2:TerminateInstances
-                - ec2:CreateNetworkInterface
-                - ec2:DeleteNetworkInterface
-                - ec2:AttachNetworkInterface
-                - ec2:DetachNetworkInterface
               Resource: "*"
+              Condition:
+                StringEquals:
+                  ec2:ResourceTag/Project: AwsStudy
 
-            # alb, target group, listeners
-            - Effect: Allow
+            # ALB modify/delete 
+            - Sid: ElbOperateAwsStudy
+              Effect: Allow
               Action:
-                - elasticloadbalancing:CreateLoadBalancer
                 - elasticloadbalancing:DeleteLoadBalancer
-                - elasticloadbalancing:CreateTargetGroup
                 - elasticloadbalancing:DeleteTargetGroup
-                - elasticloadbalancing:CreateListener
+                - elasticloadbalancing:RegisterTargets
+                - elasticloadbalancing:DeregisterTargets
+                - elasticloadbalancing:RemoveTags
+                - elasticloadbalancing:ModifyTargetGroup
+                - elasticloadbalancing:ModifyTargetGroupAttributes
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  aws:ResourceTag/Project: AwsStudy
+
+            # ALB listener modify/delete
+            - Sid: ElbOperateListener
+              Effect: Allow
+              Action:
                 - elasticloadbalancing:DeleteListener
                 - elasticloadbalancing:ModifyListener
-                - elasticloadbalancing:RegisterTargets      
-                - elasticloadbalancing:DeregisterTargets
-                - elasticloadbalancing:AddTags
-                - elasticloadbalancing:RemoveTags
               Resource: "*"
 
-            # rds instance and subnet group
-            - Effect: Allow
+            # RDS modify/delete
+            - Sid: RdsOperateAwsStudy
+              Effect: Allow
               Action:
-                - rds:CreateDBInstance
                 - rds:DeleteDBInstance
-                - rds:CreateDBSubnetGroup
                 - rds:DeleteDBSubnetGroup
-                - rds:AddTagsToResource       
+                - rds:ModifyDBInstance
                 - rds:ListTagsForResource
-                - rds:CreateDBSnapshot         
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  rds:db-tag/Project: AwsStudy
+
+            # rds subnetgroup delete
+            - Sid: RdsSubnetGroupOperate
+              Effect: Allow
+              Action:
+                - rds:DeleteDBSubnetGroup
+              Resource: "*"
+
+            # rds snapshot 
+            - Sid: RdsSnapshotOps
+              Effect: Allow
+              Action:
+                - rds:CreateDBSnapshot
                 - rds:DeleteDBSnapshot
               Resource: "*"
 
-            # passrole needed for ec2 and rds
-            - Effect: Allow
+            # PassRole only for AwsStudy-
+            - Sid: PassRoleAwsStudy
+              Effect: Allow
               Action: iam:PassRole
-              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/*
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-*
 
-            # ssm secure string access for rds password
-            - Effect: Allow
+            # SSM
+            - Sid: SsmAwsStudyOnly
+              Effect: Allow
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
               Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rds/master/password
 
-            # kms decrypt for ssm secure string
-            - Effect: Allow
+            # KMS decrypt only via SSM
+            - Sid: KmsDecryptViaSsm
+              Effect: Allow
               Action: kms:Decrypt
-              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/d7837f3c-a92b-4eae-88d0-493e9dace536
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
