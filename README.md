@@ -4,13 +4,82 @@
 
 ### 実行ロール情報
 - ロール名: `CloudFormationExecutionRole`
-- ARN: `arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole`
+- ARN: `arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole`  
+  ⚠️ 必ず <AWSアカウントID> をあなた自身の 12 桁のアカウント ID に置き換えてください。サンプルをコピペすると実行エラーになります。
   
 - **Role ARN の確認方法**
-> IAM ロール作成後に以下のコマンドで ARN を確認し、上記の `<AWSアカウントID>` のところを、使用者の`<AWSアカウントID>`に置き換えてください
+> IAM ロール作成後に以下のコマンドで ARN を確認できます。
 > ```bash
 > aws iam get-role --role-name CloudFormationExecutionRole --query "Role.Arn" --output text
-> ```
+> ```　　
+その出力結果のアカウント ID を、README 中の <AWSアカウントID> に置き換えてください。
+
+# IAM リソーススコープ設計方針
+本プロジェクトでは、CloudFormation 実行ロールに対して 最小権限の原則（Least Privilege） に基づき、
+IAM ポリシーのリソーススコープを段階的に最小化する設計を採用しています。  
+
+## Create 系 API は Resource: "*" にしている理由（重要）
+EC2 / ELB / RDS などのリソースは 作成前に ARN が存在しないため、
+AWS 公式ベストプラクティスに従い、以下のように Resource: "*" を使用しています。  
+- ec2:CreateVpc
+- ec2:CreateSubnet
+- ec2:CreateSecurityGroup
+- elasticloadbalancing:CreateLoadBalancer
+- rds:CreateDBInstance  
+  など　　
+
+  ✅（ARN を絞れないため、AWS の設計上 "*" が唯一の方法）　
+  　
+## Modify / Delete 系はタグベース (Project=AwsStudy) で制御
+作成済みリソースは CloudFormation によりタグ付与されているため、
+以下のようにタグ条件を用いて、削除権限を AwsStudy 関連リソースのみに限定しています。  
+```
+Condition:
+  StringEquals:
+    ec2:ResourceTag/Project: AwsStudy
+```
+これにより CloudFormation が管理するリソースのみ削除でき、
+他のプロジェクトへの影響を防止できます。  
+
+## SSM SecureString は対象パラメータ ARN のみに限定  
+本プロジェクトでは、RDS パスワードを SSM SecureString に保存しており、
+CloudFormation 実行ロールが参照できるパラメータは 次の一つだけです：  
+```
+arn:aws:ssm:ap-northeast-1:<ACCOUNT_ID>:parameter/rds/master/password
+```
+## KMS decrypt も特定キー ARN のみに限定
+kms:Decrypt はデータ漏洩リスクにつながるため、
+特定キー + ViaService = SSM の組み合わせで厳格に制御しています。  
+```
+Resource: arn:aws:kms:ap-northeast-1:<ACCOUNT_ID>:key/<KEY_ID>
+Condition:
+  StringEquals:
+    kms:ViaService: ssm.ap-northeast-1.amazonaws.com  
+```
+→  CloudFormation が SSM 経由でパラメータ復号する場合のみ許可  
+
+## 非タグ対応リソースは例外 Statement で個別に許可
+一部 AWS リソースは タグ付けやタグ条件による制御に対応していません。  
+例：　　
+- Listener
+- DB Subnet Group
+- 一部の ENI
+- RDS 自動スナップショット　　
+  
+など　　
+
+これらはタグ条件で制御できないため、
+必要な操作を個別の Statement で許可し、
+過剰な権限付与を防いでいます。
+## 今後の最小権限化方針
+本 IAM ロールでは現時点で十分に最小化されていますが、
+以下を継続的に改善する方針としています：  
+- 新しく追加されるリソースの ARN を段階的に限定
+- タグ対応の拡張（ELB / RDS の追加タグ活用）
+- 不要 API の削除
+- CloudTrail での権限使用状況のモニタリング  
+  本 README に基づいて、
+安全で管理しやすい CloudFormation 実行ロールを維持していきます。
 
 ### デプロイ手順
 ### 🧾 前提  
@@ -69,6 +138,7 @@ Parameters:
       ParameterKey=DBMasterUsername,ParameterValue=<YOUR-DB-USERNAME> \
   --region ap-northeast-1
   ``` 
+  ⚠️ ここも <AWSアカウントID> を必ず置き換えてください。
   ### ChangeSet 内容確認
   ```
   aws cloudformation describe-change-set \
@@ -134,7 +204,8 @@ aws cloudformation deploy \
   --stack-name AwsStudy-Network-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole
-```
+```  
+⚠️ ここも <AWSアカウントID> を必ず置き換えてください。
 ### Security スタック
 ```
 aws cloudformation deploy \
@@ -187,7 +258,7 @@ DBMasterUsername: RDS のマスターユーザー名
   ],
   "Resource": "*"
   }
-
+⚠️ ここも必ず <AWSアカウントID> を置き換えてください。
 ## デプロイ順序
 1. AWS-CloudFormation/iam-role.ymlで CloudFormation 実行ロールを作成
 2. AWS-CloudFormation/Network.ymlで基盤ネットワーク構築
@@ -201,11 +272,11 @@ DBMasterUsername: RDS のマスターユーザー名
 スタック作成時に --role-arn を指定して実行する方式を採用しています。
 
 ## デプロイ実行主体
-本スタックは以下のロールを使用してデプロイします。
-- 実行ロール: `arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole"　　
+実行ロール:  
+arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole  
 
-⚠️ 注意: 使用者のアカウントIDに入れ替えてください
-- 実行ユーザー: IAM 管理者ユーザー（手動デプロイ時）
+⚠️ 必ず自分のアカウント ID に置換してください
+
 ## 想定される失敗時の確認箇所
 - **CloudFormation Stack Events**: 各リソースの作成／更新エラーを確認／権限の許可
 - **CloudTrail**: 権限不足や API 呼び出し拒否の発生履歴を確認
