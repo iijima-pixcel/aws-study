@@ -1,11 +1,21 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: CloudFormation execution role for AwsStudy (tag-based + minimal privilege)
 
+Parameters:
+  RoleName:
+    Type: String
+    Description: Name for the CloudFormation Execution Role
+    Default: CloudFormationExecutionRole
+
+  SsmDbPasswordArn:
+    Type: String
+    Description: ARN of the SSM SecureString parameter containing the RDS master password
+
 Resources:
   CloudFormationExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: CloudFormationExecutionRole
+      RoleName: !Ref RoleName
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -170,7 +180,7 @@ Resources:
             - Sid: PassRoleAwsStudy
               Effect: Allow
               Action: iam:PassRole
-              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-*
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
 
             # SSM
             - Sid: SsmAwsStudyOnly
@@ -178,13 +188,18 @@ Resources:
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
-              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/rds/master/password
+              Resource: !Ref SsmDbPasswordArn
 
             # KMS decrypt only via SSM
             - Sid: KmsDecryptViaSsm
               Effect: Allow
               Action: kms:Decrypt
-              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/d7837f3c-a92b-4eae-88d0-493e9dace536
+              Resource: "*"
               Condition:
                 StringEquals:
                   kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+Outputs:
+  RoleArn:
+    Description: ARN of the CloudFormation Execution Role
+    Value: !GetAtt CloudFormationExecutionRole.Arn

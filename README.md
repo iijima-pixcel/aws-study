@@ -2,10 +2,18 @@
 本リポジトリは、Network / Security / App の3層構成でデプロイします。  
 各スタック作成時に、CloudFormation 実行ロールを明示的に指定する必要があります。
 
-### 実行ロール情報
-- ロール名: `CloudFormationExecutionRole`
-- ARN: `arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole`  
-  ⚠️ 必ず <AWSアカウントID> をあなた自身の 12 桁のアカウント ID に置き換えてください。サンプルをコピペすると実行エラーになります。
+### CloudFormation 実行ロール
+  RoleName（重要）  
+  本テンプレートでは RoleName を パラメータ化しています。
+```
+Parameters:
+  RoleName:
+    Default: CloudFormationExecutionRole
+```
+
+### RoleName のルール
+- デフォルトは CloudFormationExecutionRole
+- 必要に応じて別名に変更して構いません（例: CloudFormationExecRole-Dev）
   
 - **Role ARN の確認方法**
 > IAM ロール作成後に以下のコマンドで ARN を確認できます。
@@ -26,9 +34,8 @@ AWS 公式ベストプラクティスに従い、以下のように Resource: "*
 - ec2:CreateSecurityGroup
 - elasticloadbalancing:CreateLoadBalancer
 - rds:CreateDBInstance  
-  など　　
-
-  ✅（ARN を絞れないため、AWS の設計上 "*" が唯一の方法）　
+  など　　  
+✅（ARN を絞れないため、AWS の設計上 "*" が唯一の方法）　
   　
 ## Modify / Delete 系はタグベース (Project=AwsStudy) で制御
 作成済みリソースは CloudFormation によりタグ付与されているため、
@@ -42,21 +49,29 @@ Condition:
 他のプロジェクトへの影響を防止できます。  
 
 ## SSM SecureString は対象パラメータ ARN のみに限定  
-本プロジェクトでは、RDS パスワードを SSM SecureString に保存しており、
-CloudFormation 実行ロールが参照できるパラメータは 次の一つだけです：  
+iam-role.yml では以下のように 1 個のパラメータのみ参照可能 にしています：
 ```
-arn:aws:ssm:ap-northeast-1:<ACCOUNT_ID>:parameter/rds/master/password
+- Sid: SsmAwsStudyOnly
+  Action:
+    - ssm:GetParameter
+    - ssm:GetParameters
+  Resource: !Ref SsmDbPasswordArn
 ```
-## KMS decrypt も特定キー ARN のみに限定
-kms:Decrypt はデータ漏洩リスクにつながるため、
-特定キー + ViaService = SSM の組み合わせで厳格に制御しています。  
+✅ RDS パスワード以外のパラメータは取得不可  
+✅ 最小権限
+
+## KMS decrypt は“SSM 経由のみ” 許可  
 ```
-Resource: arn:aws:kms:ap-northeast-1:<ACCOUNT_ID>:key/<KEY_ID>
-Condition:
-  StringEquals:
-    kms:ViaService: ssm.ap-northeast-1.amazonaws.com  
+- Sid: KmsDecryptViaSsm
+  Action: kms:Decrypt
+  Resource: "*"
+  Condition:
+    StringEquals:
+      kms:ViaService: ssm.ap-northeast-1.amazonaws.com
 ```
-→  CloudFormation が SSM 経由でパラメータ復号する場合のみ許可  
+✅ aws/ssm（AWS Managed Key）を使用  
+✅ SSM 経由での復号のみ許可されるため安全性が高い  
+✅ CMK のキー・ポリシー変更は不要
 
 ## 非タグ対応リソースは例外 Statement で個別に許可
 一部 AWS リソースは タグ付けやタグ条件による制御に対応していません。  
@@ -64,22 +79,58 @@ Condition:
 - Listener
 - DB Subnet Group
 - 一部の ENI
-- RDS 自動スナップショット　　
-  
-など　　
-
+- RDS 自動スナップショット  
+  など  
 これらはタグ条件で制御できないため、
 必要な操作を個別の Statement で許可し、
 過剰な権限付与を防いでいます。
-## 今後の最小権限化方針
+# EC2用 IAM ロール（AwsStudy-EC2-Role）について
+本プロジェクトでは、CloudFormationExecutionRole の中で
+以下の PassRole が定義されています。  
+```
+- Sid: PassRoleAwsStudy
+  Effect: Allow
+  Action: iam:PassRole
+  Resource: arn:aws:iam::<AWSアカウントID>:role/AwsStudy-EC2-Role
+```
+これは CloudFormation が EC2 インスタンスを作成する際に、
+EC2 用 IAM ロール（AwsStudy-EC2-Role）を EC2 にアタッチする ためのものです。  
+## （重要）現時点では AwsStudy-EC2-Role は未作成
+本プロジェクトでは、EC2 用の IAM ロールは
+今後 App 層構築時に追加する予定のリソースです。  
+例：EC2 ロールの典型例（参考）  
+```
+Resources:
+  AwsStudyEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AwsStudy-EC2-Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  AwsStudyEc2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref AwsStudyEc2Role
+```
+
+# 今後の最小権限化方針
 本 IAM ロールでは現時点で十分に最小化されていますが、
 以下を継続的に改善する方針としています：  
 - 新しく追加されるリソースの ARN を段階的に限定
 - タグ対応の拡張（ELB / RDS の追加タグ活用）
 - 不要 API の削除
 - CloudTrail での権限使用状況のモニタリング  
-  本 README に基づいて、
-安全で管理しやすい CloudFormation 実行ロールを維持していきます。
+本ロールの最小権限化は段階的に行い、CloudTrail や Stack Events で実際に使用された API を確認しながら不要な権限を随時削除する運用方針としています。
 
 ### デプロイ手順
 ### 🧾 前提  
