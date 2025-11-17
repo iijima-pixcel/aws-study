@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation execution role for AwsStudy (tag-based + minimal privilege)
+
+Parameters:
+  RoleName:
+    Type: String
+    Description: Name for the CloudFormation Execution Role
+    Default: CloudFormationExecutionRole
+
+  SsmDbPasswordArn:
+    Type: String
+    Description: ARN of the SSM SecureString parameter containing the RDS master password
+
+Resources:
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: CloudFormationExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+            # Allow CloudFormation stack operations only for AwsStudy-stacks
+            - Effect: Allow
+              Action:
+                - cloudformation:CreateStack
+                - cloudformation:UpdateStack
+                - cloudformation:DeleteStack
+                - cloudformation:CreateChangeSet
+                - cloudformation:ExecuteChangeSet
+                - cloudformation:DeleteChangeSet
+                - cloudformation:Describe*
+                - cloudformation:List*
+                - cloudformation:GetTemplate
+              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/AwsStudy-*
+
+            # Required describe permissions
+            - Effect: Allow
+              Action:
+                - ec2:Describe*
+                - elasticloadbalancing:Describe*
+                - rds:Describe*
+                - logs:Describe*
+                - ssm:DescribeParameters
+                - kms:DescribeKey
+                - iam:GetRole
+                - iam:ListRolePolicies
+              Resource: "*"
+
+            #  Create operations 
+            # (Cannot restrict by ARN because ARN does not exist yet)
+            - Sid: Ec2Create
+              Effect: Allow
+              Action:
+                - ec2:CreateVpc
+                - ec2:CreateSubnet
+                - ec2:CreateInternetGateway
+                - ec2:CreateRouteTable
+                - ec2:CreateNatGateway
+                - ec2:AttachInternetGateway
+                - ec2:AssociateRouteTable
+                - ec2:AllocateAddress
+                - ec2:CreateSecurityGroup
+                - ec2:RunInstances
+                - ec2:CreateNetworkInterface
+                - ec2:CreateRoute
+                - ec2:CreateTags
+              Resource: "*"
+
+            # ALB Create operations
+            - Sid: ElbCreate
+              Effect: Allow
+              Action:
+                - elasticloadbalancing:CreateLoadBalancer
+                - elasticloadbalancing:CreateTargetGroup
+                - elasticloadbalancing:CreateListener
+                - elasticloadbalancing:AddTags
+                - elasticloadbalancing:RegisterTargets
+              Resource: "*"
+
+            # RDS Create operations
+            - Sid: RdsCreate
+              Effect: Allow
+              Action:
+                - rds:CreateDBInstance
+                - rds:CreateDBSubnetGroup
+                - rds:AddTagsToResource
+              Resource: "*"
+
+            #  Modify/Delete can be restricted  
+            - Sid: Ec2ModifyDeleteAwsStudy
+              Effect: Allow
+              Action:
+                - ec2:DeleteVpc
+                - ec2:DeleteSubnet
+                - ec2:DetachInternetGateway
+                - ec2:DeleteInternetGateway
+                - ec2:DeleteRouteTable
+                - ec2:DeleteNatGateway
+                - ec2:ReleaseAddress
+                - ec2:DeleteRoute
+                - ec2:DisassociateRouteTable
+                - ec2:DeleteNetworkInterface
+                - ec2:ModifyVpcAttribute
+                - ec2:ModifySubnetAttribute
+                - ec2:AuthorizeSecurityGroupIngress
+                - ec2:AuthorizeSecurityGroupEgress
+                - ec2:RevokeSecurityGroupIngress
+                - ec2:RevokeSecurityGroupEgress
+                - ec2:DeleteSecurityGroup
+                - ec2:TerminateInstances
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  ec2:ResourceTag/Project: AwsStudy
+
+            # ALB modify/delete 
+            - Sid: ElbOperateAwsStudy
+              Effect: Allow
+              Action:
+                - elasticloadbalancing:DeleteLoadBalancer
+                - elasticloadbalancing:DeleteTargetGroup
+                - elasticloadbalancing:RegisterTargets
+                - elasticloadbalancing:DeregisterTargets
+                - elasticloadbalancing:RemoveTags
+                - elasticloadbalancing:ModifyTargetGroup
+                - elasticloadbalancing:ModifyTargetGroupAttributes
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  aws:ResourceTag/Project: AwsStudy
+
+            # ALB listener modify/delete
+            - Sid: ElbOperateListener
+              Effect: Allow
+              Action:
+                - elasticloadbalancing:DeleteListener
+                - elasticloadbalancing:ModifyListener
+              Resource: "*"
+
+            # RDS modify/delete
+            - Sid: RdsOperateAwsStudy
+              Effect: Allow
+              Action:
+                - rds:DeleteDBInstance
+                - rds:DeleteDBSubnetGroup
+                - rds:ModifyDBInstance
+                - rds:ListTagsForResource
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  rds:db-tag/Project: AwsStudy
+
+            # rds subnetgroup delete
+            - Sid: RdsSubnetGroupOperate
+              Effect: Allow
+              Action:
+                - rds:DeleteDBSubnetGroup
+              Resource: "*"
+
+            # rds snapshot 
+            - Sid: RdsSnapshotOps
+              Effect: Allow
+              Action:
+                - rds:CreateDBSnapshot
+                - rds:DeleteDBSnapshot
+              Resource: "*"
+
+            # PassRole only for AwsStudy-
+            - Sid: PassRoleAwsStudy
+              Effect: Allow
+              Action: iam:PassRole
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
+
+            # SSM
+            - Sid: SsmAwsStudyOnly
+              Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Ref SsmDbPasswordArn
+
+            # KMS decrypt only via SSM
+            - Sid: KmsDecryptViaSsm
+              Effect: Allow
+              Action: kms:Decrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+Outputs:
+  RoleArn:
+    Description: ARN of the CloudFormation Execution Role
+    Value: !GetAtt CloudFormationExecutionRole.Arn

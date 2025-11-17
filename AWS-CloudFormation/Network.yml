@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aws-Study-NetworkLayer
+
+Resources:
+
+  # VPC
+  AwsStudyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: AwsStudyVpc
+        - Key: Project
+          Value: AwsStudy         
+
+  # Public Subnet 1a
+  AwsStudyPublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: AwsStudyPublicSubnet1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Public Subnet 1c
+  AwsStudyPublicSubnet1c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: AwsStudyPublicSubnet1c
+        - Key: Project
+          Value: AwsStudy
+
+  # Private Subnet 1a
+  AwsStudyPrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: AwsStudyPrivateSubnet1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Private Subnet 1c
+  AwsStudyPrivateSubnet1c:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: AwsStudyPrivateSubnet1c
+        - Key: Project
+          Value: AwsStudy
+
+  # Internet Gateway
+  AwsStudyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: AwsStudyInternetGateway
+        - Key: Project
+          Value: AwsStudy
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      InternetGatewayId: !Ref AwsStudyInternetGateway
+
+  # NAT EIP
+  AwsStudyNatEip1a:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: AwsStudyNatEip1a
+        - Key: Project
+          Value: AwsStudy
+
+  # NAT Gateway
+  AwsStudyNatGateway1a:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt AwsStudyNatEip1a.AllocationId
+      SubnetId: !Ref AwsStudyPublicSubnet1a
+      Tags:
+        - Key: Name
+          Value: AwsStudyNatGateway1a
+        - Key: Project
+          Value: AwsStudy
+
+  # Route Table (Public)
+  AwsStudyPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      Tags:
+        - Key: Name
+          Value: AwsStudyPublicRouteTable
+        - Key: Project
+          Value: AwsStudy
+
+  # Route Table (Private)
+  AwsStudyPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AwsStudyVpc
+      Tags:
+        - Key: Name
+          Value: AwsStudyPrivateRouteTable
+        - Key: Project
+          Value: AwsStudy
+
+  AwsStudyPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref AwsStudyInternetGateway
+
+  AwsStudyPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref AwsStudyNatGateway1a
+
+  # Route Associations
+  PublicSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AwsStudyPublicSubnet1a
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+
+  PublicSubnet1cRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AwsStudyPublicSubnet1c
+      RouteTableId: !Ref AwsStudyPublicRouteTable
+
+  PrivateSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AwsStudyPrivateSubnet1a
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+
+  PrivateSubnet1cRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AwsStudyPrivateSubnet1c
+      RouteTableId: !Ref AwsStudyPrivateRouteTable
+
+Outputs:
+  AwsStudyVpcId:
+    Value: !Ref AwsStudyVpc
+    Export:
+      Name: AwsStudyVpcId
+
+  AwsStudyPublicSubnet1aId:
+    Value: !Ref AwsStudyPublicSubnet1a
+    Export:
+      Name: AwsStudyPublicSubnet1aId
+
+  AwsStudyPublicSubnet1cId:
+    Value: !Ref AwsStudyPublicSubnet1c
+    Export:
+      Name: AwsStudyPublicSubnet1cId
+
+  AwsStudyPrivateSubnet1aId:
+    Value: !Ref AwsStudyPrivateSubnet1a
+    Export:
+      Name: AwsStudyPrivateSubnet1aId
+
+  AwsStudyPrivateSubnet1cId:
+    Value: !Ref AwsStudyPrivateSubnet1c
+    Export:
+      Name: AwsStudyPrivateSubnet1cId
+
+      
