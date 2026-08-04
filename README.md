@@ -10,15 +10,7 @@ Network / Security / App の3層構成でテンプレートを分割し、VPC、
 
 ## 構成
 
-```text
-Internet
-    ↓
-ALB
-    ↓
-EC2
-    ↓
-RDS
-```
+![ AWS Portfolio 構成図](docs/images/AwsPortfolio.png)
 
 テンプレートは以下のように分割しています。
 
