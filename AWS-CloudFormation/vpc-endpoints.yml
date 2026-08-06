@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Aws-Study-VpcEndpoints
+
+Resources:
+
+  # Systems Manager API
+  AwsStudySsmVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !ImportValue AwsStudyVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      SubnetIds:
+        - !ImportValue AwsStudyPrivateSubnet1aId
+        - !ImportValue AwsStudyPrivateSubnet1cId
+      SecurityGroupIds:
+        - !ImportValue AwsStudySsmEndpointSecurityGroupId
+      PrivateDnsEnabled: true
+      Tags:
+        - Key: Name
+          Value: AwsStudySsmVpcEndpoint
+        - Key: Project
+          Value: AwsStudy
+
+  # Session Manager communication channel
+  AwsStudySsmMessagesVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !ImportValue AwsStudyVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      SubnetIds:
+        - !ImportValue AwsStudyPrivateSubnet1aId
+        - !ImportValue AwsStudyPrivateSubnet1cId
+      SecurityGroupIds:
+        - !ImportValue AwsStudySsmEndpointSecurityGroupId
+      PrivateDnsEnabled: true
+      Tags:
+        - Key: Name
+          Value: AwsStudySsmMessagesVpcEndpoint
+        - Key: Project
+          Value: AwsStudy
+
+  # Compatibility endpoint for SSM Agent
+  AwsStudyEc2MessagesVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !ImportValue AwsStudyVpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      SubnetIds:
+        - !ImportValue AwsStudyPrivateSubnet1aId
+        - !ImportValue AwsStudyPrivateSubnet1cId
+      SecurityGroupIds:
+        - !ImportValue AwsStudySsmEndpointSecurityGroupId
+      PrivateDnsEnabled: true
+      Tags:
+        - Key: Name
+          Value: AwsStudyEc2MessagesVpcEndpoint
+        - Key: Project
+          Value: AwsStudy
