@@ -50,6 +50,23 @@ Resources:
         - Key: Project
           Value: AwsStudy
 
+  # Security Group for SSM VPC Endpoints
+  AwsStudySsmEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTPS from EC2 to SSM VPC endpoints
+      VpcId: !ImportValue AwsStudyVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref AwsStudyEc2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: AwsStudySsmEndpointSecurityGroup
+        - Key: Project
+          Value: AwsStudy
+
   # RDS Security Group
   AwsStudyRdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -82,3 +99,10 @@ Outputs:
     Value: !Ref AwsStudyRdsSecurityGroup
     Export:
       Name: AwsStudyRdsSecurityGroupId
+
+  AwsStudySsmEndpointSecurityGroupId:
+    Description: Security Group ID for SSM VPC endpoints
+    Value: !Ref AwsStudySsmEndpointSecurityGroup
+    Export:
+      Name: AwsStudySsmEndpointSecurityGroupId
+      
