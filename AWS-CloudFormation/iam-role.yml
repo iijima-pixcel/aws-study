@@ -225,3 +225,9 @@ Outputs:
   RoleArn:
     Description: ARN of the CloudFormation Execution Role
     Value: !GetAtt CloudFormationExecutionRole.Arn
+
+  Ec2InstanceProfileName:
+    Description: EC2 Instance Profile Name
+    Value: !Ref Ec2InstanceProfile
+    Export:
+      Name: AwsStudyEc2InstanceProfileName

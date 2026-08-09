@@ -1,12 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Aws-Study-SecurityLayer
 
-Parameters:
-  CidrIpFromInternet:
-    Type: String
-    Description: CIDR IP range for allowing access from the internet
-    Default: 36.8.0.45/32
-
 Resources:
 
   # ALB Security Group
@@ -37,10 +31,6 @@ Resources:
           FromPort: 8080
           ToPort: 8080
           SourceSecurityGroupId: !Ref AwsStudyAlbSecurityGroup
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref CidrIpFromInternet
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -105,4 +95,3 @@ Outputs:
     Value: !Ref AwsStudySsmEndpointSecurityGroup
     Export:
       Name: AwsStudySsmEndpointSecurityGroupId
-      

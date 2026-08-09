@@ -80,11 +80,12 @@ Resources:
       KeyName: !Ref KeyName
       NetworkInterfaces:
         - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          SubnetId: !ImportValue AwsStudyPublicSubnet1aId
+          AssociatePublicIpAddress: false
+          SubnetId: !ImportValue AwsStudyPrivateSubnet1a
           GroupSet:
             - !ImportValue AwsStudyEc2SecurityGroupId
           DeleteOnTermination: true
+      IamInstanceProfile: !ImportValue AwsStudyEc2InstanceProfileName
       Tags:
         - Key: Name
           Value: AwsStudyEC2
