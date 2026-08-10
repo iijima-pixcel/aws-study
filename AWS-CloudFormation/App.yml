@@ -81,11 +81,16 @@ Resources:
       NetworkInterfaces:
         - DeviceIndex: 0
           AssociatePublicIpAddress: false
-          SubnetId: !ImportValue AwsStudyPrivateSubnet1a
+          SubnetId: !ImportValue AwsStudyPrivateSubnet1aId
           GroupSet:
             - !ImportValue AwsStudyEc2SecurityGroupId
           DeleteOnTermination: true
       IamInstanceProfile: !ImportValue AwsStudyEc2InstanceProfileName
+      UserData:
+        Fn::Base64:  |
+          #!/bin/bash
+          systemctl enable amazon-ssm-agent
+          systemctl start amazon-ssm-agent
       Tags:
         - Key: Name
           Value: AwsStudyEC2
