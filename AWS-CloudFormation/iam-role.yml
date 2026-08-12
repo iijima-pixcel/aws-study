@@ -74,6 +74,7 @@ Resources:
                 - ec2:RunInstances
                 - ec2:CreateNetworkInterface
                 - ec2:CreateRoute
+                - ec2:CreateVpcEndpoint
                 - ec2:CreateTags
               Resource: "*"
 
@@ -119,6 +120,8 @@ Resources:
                 - ec2:RevokeSecurityGroupEgress
                 - ec2:DeleteSecurityGroup
                 - ec2:TerminateInstances
+                - ec2:ModifyVpcEndpoint
+                - ec2:DeleteVpcEndpoints
               Resource: "*"
               Condition:
                 StringEquals:
@@ -176,12 +179,6 @@ Resources:
                 - rds:DeleteDBSnapshot
               Resource: "*"
 
-            # PassRole only for AwsStudy-
-            - Sid: PassRoleAwsStudy
-              Effect: Allow
-              Action: iam:PassRole
-              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
-
             # SSM
             - Sid: SsmAwsStudyOnly
               Effect: Allow
@@ -199,10 +196,17 @@ Resources:
                 StringEquals:
                   kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
 
+            # PassRole only for AwsStudy-
+            - Sid: PassRoleAwsStudy
+              Effect: Allow
+              Action:
+                 - iam:PassRole
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
+
   Ec2Role:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub ${AWS::StackName}-ec2-role
+      RoleName: AwsStudy-EC2-Role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
