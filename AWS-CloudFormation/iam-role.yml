@@ -7,9 +7,9 @@ Parameters:
     Description: Name for the CloudFormation Execution Role
     Default: CloudFormationExecutionRole
 
-  SsmDbPasswordArn:
+  SsmDbPasswordParameterName:
     Type: String
-    Description: ARN of the SSM SecureString parameter containing the RDS master password
+    Default: /rds/master/password
 
 Resources:
   CloudFormationExecutionRole:
@@ -185,7 +185,7 @@ Resources:
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
-              Resource: !Ref SsmDbPasswordArn
+              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmDbPasswordParameterName}
 
             # KMS decrypt only via SSM
             - Sid: KmsDecryptViaSsm
@@ -206,7 +206,7 @@ Resources:
   Ec2Role:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: AwsStudy-EC2-Role
+      RoleName: AwsStudy-Cfn-EC2-Role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -222,6 +222,7 @@ Resources:
   Ec2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      InstanceProfileName: AwsStudy-Cfn-EC2-Instance-Profile
       Roles:
         - !Ref Ec2Role
 
@@ -234,4 +235,4 @@ Outputs:
     Description: EC2 Instance Profile Name
     Value: !Ref Ec2InstanceProfile
     Export:
-      Name: AwsStudyEc2InstanceProfileName
+      Name: AwsStudy-Cfn-EC2-Instance-Profile-Name
