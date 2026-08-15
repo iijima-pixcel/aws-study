@@ -24,7 +24,7 @@ Resources:
   AwsStudyEc2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow traffic from ALB + SSH from My IP
+      GroupDescription: Allow traffic from ALB 
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp

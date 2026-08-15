@@ -10,6 +10,7 @@ Parameters:
   AMI:
     Type: AWS::EC2::Image::Id
     Description: AMI ID for the EC2 instance
+    Default: ami-01205c30badb279ec
 
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
