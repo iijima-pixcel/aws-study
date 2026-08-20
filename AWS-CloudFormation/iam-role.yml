@@ -30,20 +30,6 @@ Resources:
             Version: "2012-10-17"
             Statement:
 
-            # Allow CloudFormation stack operations only for AwsStudy-stacks
-            - Effect: Allow
-              Action:
-                - cloudformation:CreateStack
-                - cloudformation:UpdateStack
-                - cloudformation:DeleteStack
-                - cloudformation:CreateChangeSet
-                - cloudformation:ExecuteChangeSet
-                - cloudformation:DeleteChangeSet
-                - cloudformation:Describe*
-                - cloudformation:List*
-                - cloudformation:GetTemplate
-              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/AwsStudy-*
-
             # Required describe permissions
             - Effect: Allow
               Action:
@@ -201,7 +187,7 @@ Resources:
               Effect: Allow
               Action:
                  - iam:PassRole
-              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-Cfn-EC2-Role
 
   Ec2Role:
     Type: AWS::IAM::Role
