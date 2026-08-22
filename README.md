@@ -16,9 +16,10 @@ Network / Security / App の3層構成でテンプレートを分割し、VPC、
 
 ```text
 AWS-CloudFormation/
-├── iam-role.yml
+├── Iam-Role.yml
 ├── Network.yml
 ├── Security.yml
+├── Vpc-endpoints.yml
 └── App.yml
 ```
 
@@ -46,11 +47,13 @@ AWS-CloudFormation/
 
 ### 1. 3層構成のAWS環境構築
 
-CloudFormationを用いて、Network / Security / App の3層構成でAWSリソースを構築しています。
+CloudFormationを用いて、Network / Security / App の3層構成でAWSリソースを構築しています。   
+VPC Endpointは依存関係を分離するため、専用テンプレートとして管理しています。
 
 * Network層：VPC、Subnet、Internet Gateway、Route Table
-* Security層：Security Group
-* App層：ALB、EC2、RDS、CloudWatch Alarm、SNS
+* Security層：Security Group    
+* VPC Endpoint：SSM / EC2 Messages / SSM Messages のInterface Endpoint、S3 Gateway Endpoint
+* App層：ALB、EC2、RDS、CloudWatch Alarm、SNS   
 
 テンプレートを分割することで、各レイヤーの役割を明確にしています。
 
@@ -92,10 +95,11 @@ CloudFormationのChangeSetを利用し、スタック更新前に変更内容を
 
 1. `iam-role.yml`
 2. `Network.yml`
-3. `Security.yml`
-4. `App.yml`
+3. `Security.yml` 
+4. `Vpc-Endpoints.yml`
+5. `App.yml`
 
-`iam-role.yml`でCloudFormation実行ロールを作成し、その後のスタックでは`--role-arn`を指定してデプロイします。
+`Iam-role.yml`でCloudFormation実行ロールを作成し、その後のスタックでは`--role-arn`を指定してデプロイします。
 
 ## 実行例
 
@@ -103,7 +107,7 @@ CloudFormationのChangeSetを利用し、スタック更新前に変更内容を
 
 ```bash
 aws cloudformation deploy \
-  --template-file AWS-CloudFormation/iam-role.yml \
+  --template-file AWS-CloudFormation/Iam-role.yml \
   --stack-name CloudFormationExecutionRoleStack \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ap-northeast-1
@@ -128,7 +132,6 @@ aws cloudformation deploy \
   --stack-name AwsStudy-Security-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
-  --parameter-overrides CidrIpFromInternet=<YOUR-CIDR-IP> \
   --region ap-northeast-1
 ```
 
@@ -140,10 +143,6 @@ aws cloudformation deploy \
   --stack-name AwsStudy-App-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
-  --parameter-overrides \
-      KeyName=<YOUR-KEYPAIR-NAME> \
-      AMI=<YOUR-AMI-ID> \
-      DBMasterUsername=<YOUR-DB-USERNAME> \
   --region ap-northeast-1
 ```
 
