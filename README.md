@@ -52,12 +52,22 @@ VPC Endpointは依存関係を分離するため、専用テンプレートと�
 
 * Network層：VPC、Subnet、Internet Gateway、Route Table
 * Security層：Security Group    
-* VPC Endpoint：SSM / EC2 Messages / SSM Messages のInterface Endpoint、S3 Gateway Endpoint
+* VPC Endpoint：SSM / EC2 Messages / SSM Messages のInterface Endpoint
 * App層：ALB、EC2、RDS、CloudWatch Alarm、SNS   
 
 テンプレートを分割することで、各レイヤーの役割を明確にしています。
 
-### 2. CloudWatchアラームによる監視設定
+### 2. Private EC2へのSSM接続
+
+EC2をPrivate Subnetに配置し、SSM Session Managerを利用して接続する構成にしています。  
+
+* EC2をPrivate Subnetに配置
+* `ssm` / `ssmmessages` / `ec2messages` のInterface VPC Endpointを作成
+* 各VPC EndpointでPrivate DNSを有効化
+* VPC Endpoint用Security Groupでは、EC2 Security GroupからのTCP 443のみ許可
+* SSHを使用せず、Session Manager経由でEC2へ接続
+
+### 3. CloudWatchアラームによる監視設定
 
 CloudWatchアラームを設定し、AWSリソースの状態を監視できるようにしています。
 
@@ -71,19 +81,19 @@ CloudWatchアラームを設定し、AWSリソースの状態を監視できる�
 
 しきい値を超えた場合は、SNSを通じて通知できる構成にしています。
 
-### 3. IAM実行ロールの利用
+### 4. IAM実行ロールの利用
 
 CloudFormation実行用のIAMロールを作成し、各スタック作成時に`--role-arn`で明示的に指定しています。
 
 また、IAMポリシーでは最小権限を意識し、タグ条件や対象リソースの限定を行っています。
 
-### 4. SSM Parameter Storeによる機密情報管理
+### 5. SSM Parameter Storeによる機密情報管理
 
 RDSのパスワードはテンプレート内に直接記述せず、SSM Parameter StoreのSecureStringを参照する構成にしています。
 
 これにより、機密情報をコードに含めない形でリソースを構築しています。
 
-### 5. ChangeSetを使った安全なデプロイ確認
+### 6. ChangeSetを使った安全なデプロイ確認
 
 CloudFormationのChangeSetを利用し、スタック更新前に変更内容を確認できるようにしています。
 
@@ -168,4 +178,4 @@ aws cloudformation deploy \
 * CloudWatch Logsを活用したログ監視
 * WAFの追加
 * Terraform版との構成比較
-
+* EC2のOutbound通信を必要な通信先に限定する

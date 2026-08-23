@@ -7,7 +7,7 @@ Resources:
   AwsStudyAlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP/HTTPS from Internet
+      GroupDescription: Allow HTTP from Internet
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
