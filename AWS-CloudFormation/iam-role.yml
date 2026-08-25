@@ -7,9 +7,9 @@ Parameters:
     Description: Name for the CloudFormation Execution Role
     Default: CloudFormationExecutionRole
 
-  SsmDbPasswordArn:
+  SsmDbPasswordParameterName:
     Type: String
-    Description: ARN of the SSM SecureString parameter containing the RDS master password
+    Default: /rds/master/password
 
 Resources:
   CloudFormationExecutionRole:
@@ -29,20 +29,6 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-
-            # Allow CloudFormation stack operations only for AwsStudy-stacks
-            - Effect: Allow
-              Action:
-                - cloudformation:CreateStack
-                - cloudformation:UpdateStack
-                - cloudformation:DeleteStack
-                - cloudformation:CreateChangeSet
-                - cloudformation:ExecuteChangeSet
-                - cloudformation:DeleteChangeSet
-                - cloudformation:Describe*
-                - cloudformation:List*
-                - cloudformation:GetTemplate
-              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/AwsStudy-*
 
             # Required describe permissions
             - Effect: Allow
@@ -74,6 +60,7 @@ Resources:
                 - ec2:RunInstances
                 - ec2:CreateNetworkInterface
                 - ec2:CreateRoute
+                - ec2:CreateVpcEndpoint
                 - ec2:CreateTags
               Resource: "*"
 
@@ -119,6 +106,8 @@ Resources:
                 - ec2:RevokeSecurityGroupEgress
                 - ec2:DeleteSecurityGroup
                 - ec2:TerminateInstances
+                - ec2:ModifyVpcEndpoint
+                - ec2:DeleteVpcEndpoints
               Resource: "*"
               Condition:
                 StringEquals:
@@ -176,19 +165,13 @@ Resources:
                 - rds:DeleteDBSnapshot
               Resource: "*"
 
-            # PassRole only for AwsStudy-
-            - Sid: PassRoleAwsStudy
-              Effect: Allow
-              Action: iam:PassRole
-              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-EC2-Role
-
             # SSM
             - Sid: SsmAwsStudyOnly
               Effect: Allow
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
-              Resource: !Ref SsmDbPasswordArn
+              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmDbPasswordParameterName}
 
             # KMS decrypt only via SSM
             - Sid: KmsDecryptViaSsm
@@ -199,7 +182,43 @@ Resources:
                 StringEquals:
                   kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
 
+            # PassRole only for AwsStudy-
+            - Sid: PassRoleAwsStudy
+              Effect: Allow
+              Action:
+                 - iam:PassRole
+              Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AwsStudy-Cfn-EC2-Role
+
+  Ec2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AwsStudy-Cfn-EC2-Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: AwsStudy-Cfn-EC2-Instance-Profile
+      Roles:
+        - !Ref Ec2Role
+
 Outputs:
   RoleArn:
     Description: ARN of the CloudFormation Execution Role
     Value: !GetAtt CloudFormationExecutionRole.Arn
+
+  Ec2InstanceProfileName:
+    Description: EC2 Instance Profile Name
+    Value: !Ref Ec2InstanceProfile
+    Export:
+      Name: AwsStudy-Cfn-EC2-Instance-Profile-Name

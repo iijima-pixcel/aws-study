@@ -10,10 +10,7 @@ Parameters:
   AMI:
     Type: AWS::EC2::Image::Id
     Description: AMI ID for the EC2 instance
-
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 key pair name
+    Default: ami-01205c30badb279ec
 
 Resources:
   
@@ -77,14 +74,19 @@ Resources:
     Properties:
       ImageId: !Ref AMI
       InstanceType: t3.micro
-      KeyName: !Ref KeyName
       NetworkInterfaces:
         - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          SubnetId: !ImportValue AwsStudyPublicSubnet1aId
+          AssociatePublicIpAddress: false
+          SubnetId: !ImportValue AwsStudyPrivateSubnet1aId
           GroupSet:
             - !ImportValue AwsStudyEc2SecurityGroupId
           DeleteOnTermination: true
+      IamInstanceProfile: !ImportValue AwsStudy-Cfn-EC2-Instance-Profile-Name
+      UserData:
+        Fn::Base64:  |
+          #!/bin/bash
+          systemctl enable amazon-ssm-agent
+          systemctl start amazon-ssm-agent
       Tags:
         - Key: Name
           Value: AwsStudyEC2

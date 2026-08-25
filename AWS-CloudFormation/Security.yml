@@ -1,19 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Aws-Study-SecurityLayer
 
-Parameters:
-  CidrIpFromInternet:
-    Type: String
-    Description: CIDR IP range for allowing access from the internet
-    Default: 36.8.0.45/32
-
 Resources:
 
   # ALB Security Group
   AwsStudyAlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP/HTTPS from Internet
+      GroupDescription: Allow HTTP from Internet
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -30,23 +24,36 @@ Resources:
   AwsStudyEc2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow traffic from ALB + SSH from My IP
+      GroupDescription: Allow traffic from ALB 
       VpcId: !ImportValue AwsStudyVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           SourceSecurityGroupId: !Ref AwsStudyAlbSecurityGroup
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref CidrIpFromInternet
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: AwsStudyEc2SecurityGroup
+        - Key: Project
+          Value: AwsStudy
+
+  # Security Group for SSM VPC Endpoints
+  AwsStudySsmEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTPS from EC2 to SSM VPC endpoints
+      VpcId: !ImportValue AwsStudyVpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref AwsStudyEc2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: AwsStudySsmEndpointSecurityGroup
         - Key: Project
           Value: AwsStudy
 
@@ -82,3 +89,9 @@ Outputs:
     Value: !Ref AwsStudyRdsSecurityGroup
     Export:
       Name: AwsStudyRdsSecurityGroupId
+
+  AwsStudySsmEndpointSecurityGroupId:
+    Description: Security Group ID for SSM VPC endpoints
+    Value: !Ref AwsStudySsmEndpointSecurityGroup
+    Export:
+      Name: AwsStudySsmEndpointSecurityGroupId

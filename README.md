@@ -4,9 +4,10 @@
 
 CloudFormationを用いて、AWS上にWebアプリケーション実行環境を構築したポートフォリオです。
 
-Network / Security / App の3層構成でテンプレートを分割し、VPC、Subnet、Security Group、ALB、EC2、RDSなどをコードで管理しています。
+Network / Security / VPC Endpoint / App にテンプレートを分割し、ALB、Private EC2、RDSを用いた3層構成をコードで管理しています。
 
-また、CloudWatchアラームとSNS通知を追加し、構築後の監視も意識した構成にしています。
+EC2はPrivate Subnetに配置し、SSHを使用せずSSM Session Managerから管理できる構成としています。
+また、CloudWatchアラームとSNS通知を追加し、構築後の監視も意識しています。
 
 ## 構成
 
@@ -16,9 +17,10 @@ Network / Security / App の3層構成でテンプレートを分割し、VPC、
 
 ```text
 AWS-CloudFormation/
-├── iam-role.yml
+├── Iam-Role.yml
 ├── Network.yml
 ├── Security.yml
+├── Vpc-endpoints.yml
 └── App.yml
 ```
 
@@ -46,15 +48,33 @@ AWS-CloudFormation/
 
 ### 1. 3層構成のAWS環境構築
 
-CloudFormationを用いて、Network / Security / App の3層構成でAWSリソースを構築しています。
+CloudFormationを用いて、Network / Security / App の3層構成でAWSリソースを構築しています。   
+VPC Endpointは依存関係を分離するため、専用テンプレートとして管理しています。
 
-* Network層：VPC、Subnet、Internet Gateway、Route Table
-* Security層：Security Group
-* App層：ALB、EC2、RDS、CloudWatch Alarm、SNS
+* Network層：VPC、Public / Private Subnet、Internet Gateway、NAT Gateway、Route Table
+* Security層：Security Group    
+* VPC Endpoint：SSM / EC2 Messages / SSM Messages のInterface Endpoint
+* App層：ALB、EC2、RDS、CloudWatch Alarm、SNS   
 
 テンプレートを分割することで、各レイヤーの役割を明確にしています。
 
-### 2. CloudWatchアラームによる監視設定
+### 2. Private EC2へのSSM接続
+
+EC2をPrivate Subnetに配置し、SSM Session Managerを利用して接続する構成にしています。  
+
+* EC2をPrivate Subnetに配置
+* `ssm` / `ssmmessages` / `ec2messages` のInterface VPC Endpointを作成
+* 各VPC EndpointでPrivate DNSを有効化
+* VPC Endpoint用Security Groupでは、EC2 Security GroupからのTCP 443のみ許可
+* SSHを使用せず、Session Manager経由でEC2へ接続
+
+Private EC2からOSパッケージなど外部リポジトリへアクセスする必要があるため、
+Private SubnetのデフォルトルートはNAT Gatewayへ向けています。
+
+NAT Gatewayは外部リポジトリなどインターネット上の通信先へのOutbound通信に利用し、
+SSM関連通信はInterface VPC Endpointを経由させています。
+
+### 3. CloudWatchアラームによる監視設定
 
 CloudWatchアラームを設定し、AWSリソースの状態を監視できるようにしています。
 
@@ -68,19 +88,19 @@ CloudWatchアラームを設定し、AWSリソースの状態を監視できる�
 
 しきい値を超えた場合は、SNSを通じて通知できる構成にしています。
 
-### 3. IAM実行ロールの利用
+### 4. IAM実行ロールの利用
 
 CloudFormation実行用のIAMロールを作成し、各スタック作成時に`--role-arn`で明示的に指定しています。
 
 また、IAMポリシーでは最小権限を意識し、タグ条件や対象リソースの限定を行っています。
 
-### 4. SSM Parameter Storeによる機密情報管理
+### 5. SSM Parameter Storeによる機密情報管理
 
 RDSのパスワードはテンプレート内に直接記述せず、SSM Parameter StoreのSecureStringを参照する構成にしています。
 
 これにより、機密情報をコードに含めない形でリソースを構築しています。
 
-### 5. ChangeSetを使った安全なデプロイ確認
+### 6. ChangeSetを使った安全なデプロイ確認
 
 CloudFormationのChangeSetを利用し、スタック更新前に変更内容を確認できるようにしています。
 
@@ -92,10 +112,11 @@ CloudFormationのChangeSetを利用し、スタック更新前に変更内容を
 
 1. `iam-role.yml`
 2. `Network.yml`
-3. `Security.yml`
-4. `App.yml`
+3. `Security.yml` 
+4. `Vpc-Endpoints.yml`
+5. `App.yml`
 
-`iam-role.yml`でCloudFormation実行ロールを作成し、その後のスタックでは`--role-arn`を指定してデプロイします。
+`Iam-role.yml`でCloudFormation実行ロールを作成し、その後のスタックでは`--role-arn`を指定してデプロイします。
 
 ## 実行例
 
@@ -103,7 +124,7 @@ CloudFormationのChangeSetを利用し、スタック更新前に変更内容を
 
 ```bash
 aws cloudformation deploy \
-  --template-file AWS-CloudFormation/iam-role.yml \
+  --template-file AWS-CloudFormation/Iam-role.yml \
   --stack-name CloudFormationExecutionRoleStack \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ap-northeast-1
@@ -128,7 +149,17 @@ aws cloudformation deploy \
   --stack-name AwsStudy-Security-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
-  --parameter-overrides CidrIpFromInternet=<YOUR-CIDR-IP> \
+  --region ap-northeast-1
+```
+
+### Vpc-Endpointsスタック作成
+
+```bash
+aws cloudformation deploy \
+  --template-file AWS-CloudFormation/Vpc-Endpoints.yml \
+  --stack-name AwsStudy-Endpoints-stack \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
   --region ap-northeast-1
 ```
 
@@ -140,12 +171,27 @@ aws cloudformation deploy \
   --stack-name AwsStudy-App-stack \
   --capabilities CAPABILITY_NAMED_IAM \
   --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
-  --parameter-overrides \
-      KeyName=<YOUR-KEYPAIR-NAME> \
-      AMI=<YOUR-AMI-ID> \
-      DBMasterUsername=<YOUR-DB-USERNAME> \
   --region ap-northeast-1
 ```
+
+## 動作確認
+
+CloudFormationで各スタックをデプロイし、以下の動作確認を実施しました。
+
+- SSM Session ManagerからPrivate Subnet上のEC2へ接続できることを確認
+- ALB経由でEC2の8080番ポートへHTTPアクセスできることを確認
+- ALB Target GroupのヘルスチェックがHealthyになることを確認
+- EC2からRDS（MySQL）へ接続し、認証に成功することを確認
+
+これにより、以下の通信経路が正常に動作することを確認しました。
+
+Internet  
+↓  
+ALB  
+↓  
+Private EC2  
+↓  
+RDS  
 
 ## 工夫した点
 
@@ -155,6 +201,9 @@ aws cloudformation deploy \
 * RDSパスワードをSSM Parameter StoreのSecureStringで管理した
 * CloudWatchアラームとSNS通知を設定し、運用監視を意識した構成にした
 * ChangeSetを使い、変更内容を確認してからデプロイできるようにした
+* EC2をPrivate Subnetに配置し、インターネットから直接アクセスできない構成にした
+* SSM用VPC Endpointを作成し、SSHを使用せずSession ManagerでEC2を管理できるようにした
+* ALB → Private EC2 → RDSの疎通確認を行い、構築した3層構成が実際に動作することを確認した
 
 ## 学んだこと
 
@@ -164,9 +213,8 @@ aws cloudformation deploy \
 
 ## 今後の改善点
 
-* テンプレートのさらなる分割
 * GitHub ActionsによるCloudFormationデプロイの自動化
 * CloudWatch Logsを活用したログ監視
 * WAFの追加
 * Terraform版との構成比較
-
+* EC2のOutbound通信を必要な通信先に限定する

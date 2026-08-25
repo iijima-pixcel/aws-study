@@ -199,5 +199,3 @@ Outputs:
     Value: !Ref AwsStudyPrivateSubnet1c
     Export:
       Name: AwsStudyPrivateSubnet1cId
-
-      
