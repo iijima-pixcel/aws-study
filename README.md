@@ -4,9 +4,10 @@
 
 CloudFormationを用いて、AWS上にWebアプリケーション実行環境を構築したポートフォリオです。
 
-Network / Security / App の3層構成でテンプレートを分割し、VPC、Subnet、Security Group、ALB、EC2、RDSなどをコードで管理しています。
+Network / Security / VPC Endpoint / App にテンプレートを分割し、ALB、Private EC2、RDSを用いた3層構成をコードで管理しています。
 
-また、CloudWatchアラームとSNS通知を追加し、構築後の監視も意識した構成にしています。
+EC2はPrivate Subnetに配置し、SSHを使用せずSSM Session Managerから管理できる構成としています。
+また、CloudWatchアラームとSNS通知を追加し、構築後の監視も意識しています。
 
 ## 構成
 
@@ -50,7 +51,7 @@ AWS-CloudFormation/
 CloudFormationを用いて、Network / Security / App の3層構成でAWSリソースを構築しています。   
 VPC Endpointは依存関係を分離するため、専用テンプレートとして管理しています。
 
-* Network層：VPC、Subnet、Internet Gateway、Route Table
+* Network層：VPC、Public / Private Subnet、Internet Gateway、NAT Gateway、Route Table
 * Security層：Security Group    
 * VPC Endpoint：SSM / EC2 Messages / SSM Messages のInterface Endpoint
 * App層：ALB、EC2、RDS、CloudWatch Alarm、SNS   
@@ -66,6 +67,12 @@ EC2をPrivate Subnetに配置し、SSM Session Managerを利用して接続す�
 * 各VPC EndpointでPrivate DNSを有効化
 * VPC Endpoint用Security Groupでは、EC2 Security GroupからのTCP 443のみ許可
 * SSHを使用せず、Session Manager経由でEC2へ接続
+
+Private EC2からOSパッケージなど外部リポジトリへアクセスする必要があるため、
+Private SubnetのデフォルトルートはNAT Gatewayへ向けています。
+
+NAT Gatewayは外部リポジトリなどインターネット上の通信先へのOutbound通信に利用し、
+SSM関連通信はInterface VPC Endpointを経由させています。
 
 ### 3. CloudWatchアラームによる監視設定
 
@@ -145,6 +152,17 @@ aws cloudformation deploy \
   --region ap-northeast-1
 ```
 
+### Vpc-Endpointsスタック作成
+
+```bash
+aws cloudformation deploy \
+  --template-file AWS-CloudFormation/Vpc-Endpoints.yml \
+  --stack-name AwsStudy-Endpoints-stack \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --role-arn arn:aws:iam::<AWSアカウントID>:role/CloudFormationExecutionRole \
+  --region ap-northeast-1
+```
+
 ### Appスタック作成
 
 ```bash
@@ -156,6 +174,25 @@ aws cloudformation deploy \
   --region ap-northeast-1
 ```
 
+## 動作確認
+
+CloudFormationで各スタックをデプロイし、以下の動作確認を実施しました。
+
+- SSM Session ManagerからPrivate Subnet上のEC2へ接続できることを確認
+- ALB経由でEC2の8080番ポートへHTTPアクセスできることを確認
+- ALB Target GroupのヘルスチェックがHealthyになることを確認
+- EC2からRDS（MySQL）へ接続し、認証に成功することを確認
+
+これにより、以下の通信経路が正常に動作することを確認しました。
+
+Internet  
+↓  
+ALB  
+↓  
+Private EC2  
+↓  
+RDS  
+
 ## 工夫した点
 
 * Network / Security / App にテンプレートを分割し、責務を明確にした
@@ -164,6 +201,9 @@ aws cloudformation deploy \
 * RDSパスワードをSSM Parameter StoreのSecureStringで管理した
 * CloudWatchアラームとSNS通知を設定し、運用監視を意識した構成にした
 * ChangeSetを使い、変更内容を確認してからデプロイできるようにした
+* EC2をPrivate Subnetに配置し、インターネットから直接アクセスできない構成にした
+* SSM用VPC Endpointを作成し、SSHを使用せずSession ManagerでEC2を管理できるようにした
+* ALB → Private EC2 → RDSの疎通確認を行い、構築した3層構成が実際に動作することを確認した
 
 ## 学んだこと
 
@@ -173,7 +213,6 @@ aws cloudformation deploy \
 
 ## 今後の改善点
 
-* テンプレートのさらなる分割
 * GitHub ActionsによるCloudFormationデプロイの自動化
 * CloudWatch Logsを活用したログ監視
 * WAFの追加
