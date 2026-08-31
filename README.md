@@ -60,19 +60,17 @@ VPC Endpointは依存関係を分離するため、専用テンプレートと�
 
 ### 2. Private EC2へのSSM接続
 
-EC2をPrivate Subnetに配置し、SSM Session Managerを利用して接続する構成にしています。  
+EC2をPrivate Subnetに配置し、SSHではなくSSM Session Managerを利用して接続する構成にしています。
 
-* EC2をPrivate Subnetに配置
+* EC2上でSSM Agentを起動
+* EC2にアタッチしたIAMロールへSSM接続に必要な権限を付与
 * `ssm` / `ssmmessages` / `ec2messages` のInterface VPC Endpointを作成
 * 各VPC EndpointでPrivate DNSを有効化
-* VPC Endpoint用Security Groupでは、EC2 Security GroupからのTCP 443のみ許可
-* SSHを使用せず、Session Manager経由でEC2へ接続
+* VPC Endpoint用Security GroupではEC2 Security GroupからのTCP 443のみ許可
 
-Private EC2からOSパッケージなど外部リポジトリへアクセスする必要があるため、
-Private SubnetのデフォルトルートはNAT Gatewayへ向けています。
+Private DNSを有効にすることで、SSM Agentが通常のAWSサービスエンドポイント名を使用したまま、VPC Endpoint経由でSystems Managerへ通信できる構成としています。
 
-NAT Gatewayは外部リポジトリなどインターネット上の通信先へのOutbound通信に利用し、
-SSM関連通信はInterface VPC Endpointを経由させています。
+また、OSパッケージなど外部リポジトリへのOutbound通信にはNAT Gatewayを利用し、SSM関連通信はInterface VPC Endpointを経由させています。
 
 ### 3. CloudWatchアラームによる監視設定
 
